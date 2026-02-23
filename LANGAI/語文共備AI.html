@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四素句魔法廚房 - 高階邏輯版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #f0f9ff; font-family: 'ZCOOL KuaiLe', cursive, "Microsoft JhengHei", sans-serif; }
+        .magic-card { transition: all 0.2s; cursor: pointer; user-select: none; touch-action: none; }
+        .magic-card.selected { background-color: #fde047 !important; border-color: #eab308 !important; transform: scale(1.05); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        .wok-area { 
+            background: #374151; 
+            border-radius: 40% 40% 15% 15%; 
+            min-height: 160px; 
+            position: relative; 
+            border-bottom: 8px solid #1f2937; 
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.5);
+        }
+        
+        .bowl { 
+            background: white; 
+            border: 4px solid #bae6fd; 
+            border-radius: 1.5rem; 
+            padding: 0.75rem; 
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .bowl.drag-over { border-color: #fbbf24; background-color: #fffbeb; }
+
+        .level-btn.active { background-color: #3b82f6; color: white; transform: translateY(-3px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        .storage-area {
+            background-color: #ffffff;
+            border: 4px dashed #93c5fd;
+            border-radius: 2rem;
+            min-height: 160px;
+        }
+
+        @keyframes sizzle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .cooking { animation: sizzle 0.1s infinite; }
+
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .shake { animation: shake 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="p-4 md:p-6 text-slate-800">
+
+    <header class="max-w-4xl mx-auto text-center mb-6">
+        <h1 class="text-4xl text-blue-600 mb-4 font-bold">🍳 四素句魔法廚房 🍳</h1>
+        
+        <!-- Level Switcher -->
+        <div class="flex flex-wrap justify-center gap-2 mb-6">
+            <button onclick="switchLevel(1)" id="btn-lv1" class="level-btn active bg-white border-2 border-blue-400 px-5 py-2 rounded-full font-bold transition-all">初階：要素分類</button>
+            <button onclick="switchLevel(2)" id="btn-lv2" class="level-btn bg-white border-2 border-blue-400 px-5 py-2 rounded-full font-bold transition-all">中階：完整組句</button>
+            <button onclick="switchLevel(3)" id="btn-lv3" class="level-btn bg-white border-2 border-blue-400 px-5 py-2 rounded-full font-bold transition-all">高階：邏輯檢查</button>
+        </div>
+        
+        <div id="instruction-box" class="bg-blue-500 text-white p-3 rounded-2xl inline-block px-10 shadow-lg mb-4">
+            <span id="level-task" class="text-lg">初階任務：請把所有食材分類到正確的碗裡！</span>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto">
+        <!-- The Four Bowls -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bowl-wrap">
+                <div class="text-center font-bold text-pink-500 mb-1">⏰ 時間碗</div>
+                <div id="bowl-time" class="bowl" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'time')"></div>
+            </div>
+            <div class="bowl-wrap">
+                <div class="text-center font-bold text-blue-500 mb-1">👤 人物碗</div>
+                <div id="bowl-person" class="bowl" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'person')"></div>
+            </div>
+            <div class="bowl-wrap">
+                <div class="text-center font-bold text-green-500 mb-1">📍 地點碗</div>
+                <div id="bowl-place" class="bowl" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'place')"></div>
+            </div>
+            <div class="bowl-wrap">
+                <div class="text-center font-bold text-orange-500 mb-1">🎯 事件碗</div>
+                <div id="bowl-action" class="bowl" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'action')"></div>
+            </div>
+        </div>
+
+        <!-- Initial Storage Area (Level 1) -->
+        <div id="storage-container" class="mb-8">
+            <p class="text-center text-blue-400 mb-3 font-bold">📦 食材存放區（請拖曳或點擊食材）</p>
+            <div id="storage" class="storage-area p-6 flex flex-wrap justify-center items-center gap-4"></div>
+        </div>
+
+        <!-- Cooking Area (Level 2 & 3) -->
+        <div id="cooking-container" class="max-w-xl mx-auto text-center hidden">
+            <div id="wok" class="wok-area flex flex-wrap items-center justify-center p-8 gap-3 mb-6">
+                <div id="wok-placeholder" class="text-slate-400 italic">請從碗中選取食材放入鍋中...</div>
+                <div id="wok-content" class="flex flex-wrap justify-center gap-3"></div>
+            </div>
+
+            <div class="flex justify-center gap-4">
+                <button id="cook-btn" class="bg-orange-500 text-white px-14 py-4 rounded-full text-2xl shadow-xl hover:bg-orange-600 active:scale-95 transition-all font-bold">開始烹飪</button>
+                <button onclick="resetAll()" class="bg-white text-slate-500 border-2 border-slate-200 px-8 py-4 rounded-full font-bold">重新開始</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Result Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
+            <div id="res-emoji" class="text-7xl mb-4">✨</div>
+            <h2 id="res-title" class="text-3xl font-bold mb-4 text-blue-600"></h2>
+            <div id="res-sentence" class="bg-yellow-50 p-6 rounded-2xl text-2xl mb-6 text-slate-800 font-bold border-2 border-yellow-200 leading-relaxed"></div>
+            <p id="res-feedback" class="text-lg text-slate-600 mb-8"></p>
+            <button onclick="closeModal()" class="bg-blue-500 text-white w-full py-4 rounded-2xl font-bold text-xl hover:bg-blue-600 shadow-lg">繼續魔法</button>
+        </div>
+    </div>
+
+    <script>
+        // Expanded Vocabulary: 3 options per category
+        const ingredients = [
+            { id: 't1', type: 'time', word: '今天早上' },
+            { id: 't2', type: 'time', word: '放學以後' },
+            { id: 't3', type: 'time', word: '星期日那天' },
+            { id: 'p1', type: 'person', word: '爸爸' },
+            { id: 'p2', type: 'person', word: '小貓' },
+            { id: 'p3', type: 'person', word: '校長' },
+            { id: 'l1', type: 'place', word: '在圖書館' },
+            { id: 'l2', type: 'place', word: '在廚房裡' },
+            { id: 'l3', type: 'place', word: '在操場上' },
+            { id: 'a1', type: 'action', word: '專心地看書' },
+            { id: 'a2', type: 'action', word: '快樂地踢球' },
+            { id: 'a3', type: 'action', word: '忙著煮麵' }
+        ];
+
+        // Logic Mapping for Level 3
+        const logicalFaults = {
+            '在圖書館': {
+                forbidden: ['快樂地踢球', '忙著煮麵'],
+                msg: '圖書館需要保持安靜，不適合在那裡踢球或煮麵喔！'
+            },
+            '在廚房裡': {
+                forbidden: ['快樂地踢球'],
+                msg: '廚房空間狹小且有火源，踢球太危險了！'
+            },
+            '小貓': {
+                forbidden: ['專心地看書', '忙著煮麵'],
+                msg: '小貓雖然可愛，但牠看不懂文字，也不會開火煮麵呢！'
+            },
+            '在操場上': {
+                forbidden: ['專心地看書', '忙著煮麵'],
+                msg: '操場是運動的地方，煮麵或看書可能不太方便喔。'
+            }
+        };
+
+        let currentLevel = 1;
+        let selections = { time: null, person: null, place: null, action: null };
+        let classifiedCount = 0;
+
+        function init() {
+            switchLevel(1);
+        }
+
+        function switchLevel(lv) {
+            currentLevel = lv;
+            resetAll();
+            
+            document.querySelectorAll('.level-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === lv));
+            
+            const taskText = document.getElementById('level-task');
+            const storageContainer = document.getElementById('storage-container');
+            const cookingContainer = document.getElementById('cooking-container');
+
+            if (lv === 1) {
+                taskText.innerText = "初階任務：請把所有食材分類到正確的碗裡！";
+                storageContainer.classList.remove('hidden');
+                cookingContainer.classList.add('hidden');
+                renderStorage();
+            } else {
+                taskText.innerText = lv === 2 ? "中階任務：點擊碗裡的食材來組合成句子！" : "高階任務：注意句子邏輯是否正確喔！";
+                storageContainer.classList.add('hidden');
+                cookingContainer.classList.remove('hidden');
+                renderBowlsForSelection();
+            }
+        }
+
+        function renderStorage() {
+            const storage = document.getElementById('storage');
+            storage.innerHTML = '';
+            const shuffled = [...ingredients].sort(() => Math.random() - 0.5);
+            shuffled.forEach(item => {
+                const card = createCard(item);
+                storage.appendChild(card);
+            });
+        }
+
+        function renderBowlsForSelection() {
+            ['time', 'person', 'place', 'action'].forEach(type => {
+                const bowl = document.getElementById(`bowl-${type}`);
+                bowl.innerHTML = '';
+                ingredients.filter(i => i.type === type).forEach(item => {
+                    const card = createCard(item, true);
+                    bowl.appendChild(card);
+                });
+            });
+        }
+
+        function createCard(item, selectable = false) {
+            const card = document.createElement('div');
+            card.id = item.id;
+            card.className = 'magic-card px-4 py-2 bg-white border-2 border-blue-200 rounded-xl text-lg font-bold shadow-sm hover:border-blue-400';
+            card.innerText = item.word;
+            card.dataset.type = item.type;
+            
+            if (selectable) {
+                card.draggable = false;
+                card.onclick = () => handleSelection(item, card);
+            } else {
+                card.draggable = true;
+                card.ondragstart = (e) => {
+                    e.dataTransfer.setData("text/plain", item.id);
+                };
+                card.onclick = () => autoClassify(item, card);
+            }
+            return card;
+        }
+
+        // Drag & Drop
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, bowlType) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const id = e.dataTransfer.getData("text/plain");
+            const card = document.getElementById(id);
+            if (!card) return;
+
+            if (card.dataset.type === bowlType) {
+                executeClassification(card, e.currentTarget);
+            } else {
+                showWrongEffect(card);
+            }
+        }
+
+        function autoClassify(item, card) {
+            const targetBowl = document.getElementById(`bowl-${item.type}`);
+            executeClassification(card, targetBowl);
+        }
+
+        function executeClassification(card, bowl) {
+            if (card.parentElement === bowl) return;
+            bowl.appendChild(card);
+            card.draggable = false;
+            card.onclick = null;
+            card.className = 'px-3 py-1 bg-blue-50 border-2 border-blue-300 rounded-lg text-sm font-bold animate-pulse';
+            
+            classifiedCount++;
+            if (classifiedCount === ingredients.length && currentLevel === 1) {
+                document.getElementById('level-task').innerText = "分類成功！魔法鍋子出現了！";
+                document.getElementById('cooking-container').classList.remove('hidden');
+                autoPick();
+            }
+        }
+
+        function showWrongEffect(card) {
+            card.classList.add('bg-red-100', 'border-red-400', 'shake');
+            setTimeout(() => card.classList.remove('bg-red-100', 'border-red-400', 'shake'), 500);
+        }
+
+        function handleSelection(item, card) {
+            const brothers = card.parentElement.querySelectorAll('.magic-card');
+            brothers.forEach(b => b.classList.remove('selected'));
+            card.classList.add('selected');
+            selections[item.type] = item.word;
+            updateWok();
+        }
+
+        function autoPick() {
+            ['time', 'person', 'place', 'action'].forEach(type => {
+                const bowl = document.getElementById(`bowl-${type}`);
+                const first = bowl.firstChild;
+                if (first) {
+                    first.classList.add('selected');
+                    selections[type] = first.innerText;
+                }
+            });
+            updateWok();
+        }
+
+        function updateWok() {
+            const content = document.getElementById('wok-content');
+            const placeholder = document.getElementById('wok-placeholder');
+            content.innerHTML = '';
+            let valid = 0;
+            ['time', 'person', 'place', 'action'].forEach(t => {
+                if (selections[t]) {
+                    const tag = document.createElement('div');
+                    tag.className = 'bg-yellow-400 px-4 py-2 rounded-xl font-bold shadow-md';
+                    tag.innerText = selections[t];
+                    content.appendChild(tag);
+                    valid++;
+                }
+            });
+            placeholder.style.display = valid > 0 ? 'none' : 'block';
+        }
+
+        document.getElementById('cook-btn').onclick = () => {
+            if (!selections.time || !selections.person || !selections.place || !selections.action) {
+                alert("食材還不夠喔，請每個碗都選一個！");
+                return;
+            }
+            const wok = document.getElementById('wok');
+            wok.classList.add('cooking');
+            setTimeout(() => {
+                wok.classList.remove('cooking');
+                processResult();
+            }, 800);
+        };
+
+        function processResult() {
+            const { time, person, place, action } = selections;
+            const sentence = `${time}，${person}${place}${action}。`;
+            let title = "✨ 魔法成功！";
+            let feedback = "太棒了！你寫出了一個完整的四素句。";
+            let emoji = "🌟";
+
+            if (currentLevel === 3) {
+                // Logic Check
+                let logicError = "";
+                if (logicalFaults[place] && logicalFaults[place].forbidden.includes(action)) {
+                    logicError = logicalFaults[place].msg;
+                } else if (logicalFaults[person] && logicalFaults[person].forbidden.includes(action)) {
+                    logicError = logicalFaults[person].msg;
+                }
+
+                if (logicError) {
+                    title = "🤔 頑皮魔法";
+                    emoji = "💡";
+                    feedback = logicError;
+                } else {
+                    title = "🏆 邏輯大師";
+                    emoji = "👑";
+                    feedback = "不僅結構完整，邏輯也非常合理，你是真正的魔法大師！";
+                }
+            }
+
+            document.getElementById('res-title').innerText = title;
+            document.getElementById('res-emoji').innerText = emoji;
+            document.getElementById('res-sentence').innerText = sentence;
+            document.getElementById('res-feedback').innerText = feedback;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function resetAll() {
+            classifiedCount = 0;
+            selections = { time: null, person: null, place: null, action: null };
+            document.querySelectorAll('.bowl').forEach(b => b.innerHTML = '');
+            document.getElementById('wok-content').innerHTML = '';
+            document.getElementById('wok-placeholder').style.display = 'block';
+            if (currentLevel === 1) {
+                renderStorage();
+                document.getElementById('cooking-container').classList.add('hidden');
+            } else {
+                renderBowlsForSelection();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        init();
+    </script>
+</body>
+</html>
